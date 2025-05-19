@@ -2,5 +2,6 @@ name: CoreProtectTNT
 main: com.ghostchu.coreprotecttnt.Main
 version: ${version}
 api-version: 1.16
+folia-supported: true
 depend:
   - CoreProtect

@@ -82,7 +82,7 @@ public class Main extends JavaPlugin implements Listener {
         if (!(e.getRightClicked() instanceof Creeper)) {
             return;
         }
-        probablyCache.put(e.getRightClicked(), "#ignitecreeper-" + e.getPlayer().getName());
+        probablyCache.put(e.getRightClicked(), "#ignite-creeper-" + e.getPlayer().getName());
     }
 
     // Block explode (logger)
@@ -491,8 +491,8 @@ public class Main extends JavaPlugin implements Listener {
                 if (entry.getKey() instanceof Location loc) {
                     if (loc.getWorld().equals(blockCorner.getWorld()) && loc.distance(blockCorner) < 1) {
                         for (Block block : blockList) {
-                            api.logRemoval("#tntminecart-" + entry.getValue(), block.getLocation(), block.getType(), block.getBlockData());
-                            probablyCache.put(block.getLocation(), "#tntminecart-" + entry.getValue());
+                            api.logRemoval("#tnt-minecart-" + entry.getValue(), block.getLocation(), block.getType(), block.getBlockData());
+                            probablyCache.put(block.getLocation(), "#tnt-minecart-" + entry.getValue());
                         }
                         isLogged = true;
                         break;
@@ -501,7 +501,7 @@ public class Main extends JavaPlugin implements Listener {
             }
             if (!isLogged) {
                 if (probablyCache.getIfPresent(entity) != null) {
-                    String reason = "#tntminecart-" + probablyCache.getIfPresent(entity);
+                    String reason = "#tnt-minecart-" + probablyCache.getIfPresent(entity);
                     for (Block block : blockList) {
                         api.logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
                         probablyCache.put(block.getLocation(), reason);
