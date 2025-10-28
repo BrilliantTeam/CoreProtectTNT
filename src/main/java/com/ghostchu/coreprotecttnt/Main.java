@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 public class Main extends JavaPlugin implements Listener {
@@ -171,24 +172,48 @@ public class Main extends JavaPlugin implements Listener {
 
     private void processProjectileLaunch(ProjectileLaunchEvent e, Projectile projectile) {
         ProjectileSource projectileSource = projectile.getShooter();
-        String source = "";
+        String sourcePrefix = "";
         if (!(projectileSource instanceof Player)) {
-            source += "#";
+            sourcePrefix += "#";
         }
-        source += e.getEntity().getName() + "-";
+        sourcePrefix += e.getEntityType().name() + "-";
+        final String finalPrefix = sourcePrefix;
+
         if (projectileSource instanceof Entity entity) {
-            if (projectileSource instanceof Mob mob && mob.getTarget() != null) {
-                source += mob.getTarget().getName();
+            if (projectileSource instanceof Mob mob) {
+                if (isFolia()) {
+                    EntityScheduler mobScheduler = mob.getScheduler();
+                    mobScheduler.run(this, (task2) -> {
+                        try {
+                            LivingEntity target = mob.getTarget();
+                            String finalSource = finalPrefix + (target != null ? target.getName() : entity.getUniqueId().toString());
+                            probablyCache.put(projectile, finalSource);
+                            probablyCache.put(projectileSource, finalSource);
+                        } catch (Exception ex) {
+                            getLogger().severe("Error accessing mob target in Folia: " + ex.getMessage());
+                            ex.printStackTrace();
+                        }
+                    }, null);
+                } else {
+                    LivingEntity target = mob.getTarget();
+                    String finalSource = finalPrefix + (target != null ? target.getName() : entity.getUniqueId().toString());
+                    probablyCache.put(projectile, finalSource);
+                    probablyCache.put(projectileSource, finalSource);
+                }
             } else {
-                source += entity.getName();
+                String finalSource = finalPrefix + entity.getUniqueId().toString();
+                probablyCache.put(projectile, finalSource);
+                probablyCache.put(projectileSource, finalSource);
             }
         } else if (projectileSource instanceof Block block) {
-            source += block.getType().name();
+            String finalSource = finalPrefix + block.getType().name();
+            probablyCache.put(projectile, finalSource);
+            probablyCache.put(projectileSource, finalSource);
         } else {
-            source += projectileSource.getClass().getName();
+            String finalSource = finalPrefix + projectileSource.getClass().getName();
+            probablyCache.put(projectile, finalSource);
+            probablyCache.put(projectileSource, finalSource);
         }
-        probablyCache.put(e.getEntity(), source);
-        probablyCache.put(projectileSource, source);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
@@ -285,7 +310,7 @@ public class Main extends JavaPlugin implements Listener {
         if (reason != null) {
             Material mat = Material.matchMaterial(e.getEntity().getType().name());
             if (mat != null) {
-                api.logRemoval("#" + e.getCause().name() + "-" + reason, hangingPosBlock.getLocation(), Material.matchMaterial(e.getEntity().getType().name()), null);
+                api.logRemoval("#" + e.getCause().name() + "-" + reason, hangingPosBlock.getLocation(), mat, null);
             } else {
                 api.logInteraction("#" + e.getCause().name() + "-" + reason, hangingPosBlock.getLocation());
             }
@@ -321,25 +346,21 @@ public class Main extends JavaPlugin implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onPaintingHit(EntityDamageByEntityEvent e) {
-        if (!(e.getEntity() instanceof Painting)) {
+        if (!(e.getEntity() instanceof Painting painting)) {
             return;
         }
         ConfigurationSection section = Util.bakeConfigSection(getConfig(), "painting");
         if (!section.getBoolean("enable", true)) {
             return;
         }
-        ItemFrame itemFrame = (ItemFrame) e.getEntity();
-        if (itemFrame.getItem().getType().isAir() || itemFrame.isInvulnerable()) {
-            return;
-        }
         if (e.getDamager() instanceof Player) {
-            api.logInteraction(e.getDamager().getName(), itemFrame.getLocation());
-            api.logRemoval(e.getDamager().getName(), itemFrame.getLocation(), itemFrame.getItem().getType(), null);
+            api.logInteraction(e.getDamager().getName(), painting.getLocation());
+            api.logRemoval(e.getDamager().getName(), painting.getLocation(), Material.PAINTING, null);
         } else {
             String reason = probablyCache.getIfPresent(e.getDamager());
             if (reason != null) {
-                api.logInteraction("#" + e.getDamager().getName() + "-" + reason, itemFrame.getLocation());
-                api.logRemoval("#" + e.getDamager().getName() + "-" + reason, itemFrame.getLocation(), itemFrame.getItem().getType(), null);
+                api.logInteraction("#" + e.getDamager().getName() + "-" + reason, painting.getLocation());
+                api.logRemoval("#" + e.getDamager().getName() + "-" + reason, painting.getLocation(), Material.PAINTING, null);
             } else {
                 if (section.getBoolean("disable-unknown")) {
                     e.setCancelled(true);
@@ -521,7 +542,6 @@ public class Main extends JavaPlugin implements Listener {
                     api.logRemoval(track, block.getLocation(), block.getType(), block.getBlockData());
                 }
             } else {
-                LivingEntity creeperTarget = null;
                 if (isFolia()) {
                     EntityScheduler scheduler = creeper.getScheduler();
                     scheduler.run(this, (task) -> {
@@ -541,16 +561,16 @@ public class Main extends JavaPlugin implements Listener {
                                 Util.broadcastNearPlayers(e.getLocation(), section.getString("alert"));
                             }
                         } catch (Exception ex) {
-                            getLogger().severe("Error processing EntityExplodeEvent in Folia scheduler: " + ex.getMessage());
+                            getLogger().severe("Error processing Creeper explosion in Folia: " + ex.getMessage());
                             ex.printStackTrace();
                         }
                     }, null);
                 } else {
-                    creeperTarget = creeper.getTarget();
-                    if (creeperTarget != null) {
+                    LivingEntity target = creeper.getTarget();
+                    if (target != null) {
                         for (Block block : blockList) {
-                            api.logRemoval("#creeper-" + creeperTarget.getName(), block.getLocation(), block.getType(), block.getBlockData());
-                            probablyCache.put(block.getLocation(), "#creeper-" + creeperTarget.getName());
+                            api.logRemoval("#creeper-" + target.getName(), block.getLocation(), block.getType(), block.getBlockData());
+                            probablyCache.put(block.getLocation(), "#creeper-" + target.getName());
                         }
                     } else {
                         if (!section.getBoolean("disable-unknown")) {
@@ -614,12 +634,12 @@ public class Main extends JavaPlugin implements Listener {
             return;
         }
         if (track == null || track.isEmpty()) {
-            if (e.getEntity() instanceof Mob mob) {
+            if (entity instanceof Mob mob) {
                 if (isFolia()) {
                     EntityScheduler scheduler = mob.getScheduler();
                     scheduler.run(this, (task) -> {
                         try {
-                            Entity target = mob.getTarget();
+                            LivingEntity target = mob.getTarget();
                             if (target != null) {
                                 String mobTrack = target.getName();
                                 for (Block block : e.blockList()) {
@@ -631,13 +651,14 @@ public class Main extends JavaPlugin implements Listener {
                                 Util.broadcastNearPlayers(entity.getLocation(), section.getString("alert"));
                             }
                         } catch (Exception ex) {
-                            getLogger().severe("Error processing EntityExplodeEvent in Folia scheduler: " + ex.getMessage());
+                            getLogger().severe("Error processing Mob explosion in Folia: " + ex.getMessage());
                             ex.printStackTrace();
                         }
                     }, null);
                 } else {
-                    if (mob.getTarget() != null) {
-                        track = mob.getTarget().getName();
+                    LivingEntity target = mob.getTarget();
+                    if (target != null) {
+                        track = target.getName();
                     }
                 }
             }
