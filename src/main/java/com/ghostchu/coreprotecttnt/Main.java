@@ -44,13 +44,19 @@ public class Main extends JavaPlugin implements Listener {
             .build();
     private CoreProtectAPI api;
 
-    private static boolean isFolia() {
+    private static final boolean IS_FOLIA = checkFolia();
+
+    private static boolean checkFolia() {
         try {
             Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
             return true;
         } catch (ClassNotFoundException e) {
             return false;
         }
+    }
+
+    private static boolean isFolia() {
+        return IS_FOLIA;
     }
 
     @Override
@@ -122,7 +128,7 @@ public class Main extends JavaPlugin implements Listener {
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-    public void onBlockBreak(BlockPlaceEvent event) {
+    public void onBlockBreak(BlockBreakEvent event) {
         probablyCache.put(event.getBlock().getLocation(), event.getPlayer().getName());
     }
 
